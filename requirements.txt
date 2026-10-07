@@ -9,3 +9,4 @@ lxml
 matplotlib
 tqdm
 python-dotenv
+scipy
