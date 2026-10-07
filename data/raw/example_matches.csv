@@ -1,0 +1,28 @@
+# Example data for a tiny project review
+# This file intentionally contains a limited number of rows.
+# It is enough to run the demo pipeline without external data.
+date,home_team,away_team,home_goals,away_goals
+2022-08-05,Arsenal,Crystal Palace,2,1
+2022-08-06,Manchester City,Bournemouth,3,0
+2022-08-06,Tottenham,Southampton,2,1
+2022-08-07,Liverpool,Fulham,2,2
+2022-08-07,Leeds,Everton,0,1
+2022-08-08,Chelsea,Leicester City,1,1
+2022-08-13,Crystal Palace,Arsenal,0,2
+2022-08-13,Bournemouth,Manchester City,1,4
+2022-08-13,Southampton,Tottenham,1,3
+2022-08-14,Fulham,Liverpool,1,2
+2022-08-14,Everton,Leeds,1,0
+2022-08-15,Leicester City,Chelsea,0,2
+2022-08-20,Arsenal,Leicester City,4,1
+2022-08-20,Manchester City,Crystal Palace,2,0
+2022-08-20,Tottenham,Bournemouth,3,1
+2022-08-21,Liverpool,Everton,2,0
+2022-08-21,Chelsea,Southampton,2,1
+2022-08-22,Leeds,Fulham,2,1
+2022-08-27,Crystal Palace,Tottenham,1,2
+2022-08-27,Bournemouth,Liverpool,0,3
+2022-08-27,Southampton,Arsenal,1,1
+2022-08-28,Fulham,Chelsea,0,1
+2022-08-28,Everton,Manchester City,1,3
+2022-08-29,Leicester City,Leeds,2,1

@@ -1,148 +1,1156 @@
 # football-predictor
 
-完整的中文说明（模板项目）：从比赛数据抓取 → 特征工程 → LightGBM 多分类建模 → 按赔率回测的研究性项目。
+这是一个完整的足球比赛预测研究模板，适合学习和实验：
+- 数据抓取：FBref / football-data API 示例
+- 特征工程：近期表现、主客场、进失球率、让球/赔率特征
+- 模型训练：LightGBM 多分类（主胜 / 平 / 客胜）
+- 预测：加载模型，输出胜平负概率
+- 回测：基于历史赔率做盈亏仿真
 
-> 注意：本项目仅作研究和教学用途，不作为实盘或博彩建议。在使用真实资金前，请做好充分回测与风控，并遵守当地法律法规与平台规则。
+> 仅用于研究和学习；不构成任何投注建议或实盘推荐。
 
-## 仓库说明（中文）
-本仓库提供一个最小可运行的足彩/足球比赛预测研究模板，包含：
+## 目录结构
 
-- 数据抓取示例（FBref 页面抓取、football-data.org API 示例）
-- 特征工程：按球队滚动窗口统计、简单 Elo、目标编码
-- 模型训练：LightGBM 多分类（主胜/平/客胜）示例并含时间序列 CV
-- 预测与回测：按赔率计算边值（edge），按策略回测盈亏
-- 辅助工具：合并赔率、数据对齐等工具函数
+```text
+football-predictor/
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── LICENSE
+├── .env.example
+├── data/
+│   ├── raw/
+│   │   ├── example_matches.csv
+│   │   └── example_odds.csv
+│   └── processed/
+│       └── .gitkeep
+├── src/
+│   ├── __init__.py
+│   ├── fetch_fbref.py
+│   ├── fetch_footballdata_api.py
+│   ├── features.py
+│   ├── model_train.py
+│   ├── predict.py
+│   ├── backtest.py
+│   └── utils.py
+├── models/
+│   └── .gitkeep
+└── notebooks/
+    └── .gitkeep
+```
 
-### 项目结构
-- data/
-  - raw/            （放原始抓取数据 CSV）
-  - processed/      （特征工程后的数据与预测结果）
-- src/
-  - fetch_fbref.py                  # 从 FBref 抓取（示例）
-  - fetch_footballdata_api.py       # football-data.org API 抓取（示例）
-  - features.py                     # 特征工程脚本
-  - model_train.py                  # 训练 LightGBM 并保存模型
-  - predict.py                      # 使用训练好的模型进行预测
-  - backtest.py                     # 回测脚本（基于赔率与模型概率）
-  - utils.py                        # 合并赔率等辅助函数
-- models/                            # 训练好的模型会保存到这里
-- requirements.txt                   # 依赖清单
-- README.md                          # 本文件（中文说明）
-- .gitignore                         # Python 常见忽略文件
-- LICENSE (MIT)                      # 开源许可
+## 特性
 
-> 当前仓库可能只显示了初始的 `.gitignore` 与 `LICENSE`，我刚刚已把本 README 添加到仓库中；你刷新页面后应该能看到完整 README。之所以最初只有两个文件，是因为仓库创建时我们选择了仅初始化 .gitignore 与 License，后续再逐步添加项目文件。
+- 生成滚动窗口特征：近 5 场球队表现、进球/失球、胜率、主客场表现
+- 简单 Elo 特征：主队和客队预赛 Elo 差值
+- 基于 `LightGBM` 多分类模型输出 `P(H) / P(D) / P(A)`
+- 回测脚本：比较模型概率与赔率，计算边值（edge）和盈亏
 
-## 快速开始（在本仓库已有完整代码后）
-以下命令假设你已把仓库克隆到本地或通过 GitHub 下载 ZIP 并解压。
+## 环境准备
 
-1. 创建并激活虚拟环境（Linux / macOS）
+### 1) Python 环境
+建议使用 Python 3.10+，创建虚拟环境：
 
 ```bash
 python -m venv venv
 source venv/bin/activate
 ```
 
-Windows (PowerShell)：
+Windows PowerShell：
 
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-2. 安装依赖
+### 2) 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. （可选）配置 football-data API token
-- 如果要使用 `src/fetch_footballdata_api.py`，请申请 token（https://www.football-data.org）并在项目根目录创建 `.env`：
+## 运行流程
 
+### 方式 A：使用示例数据（最简单）
+这个仓库自带示例数据，足以跑通完整流程：
+
+```bash
+python -c "from src.features import build_features; build_features('data/raw/example_matches.csv', 'data/processed/processed_matches.csv')"
+python src/model_train.py
+python src/predict.py --input data/processed/processed_matches.csv --model models/lgb_multi_model.pkl
+python src/backtest.py
 ```
-FOOTBALL_DATA_API_TOKEN=your_token_here
-```
 
-4. 抓取数据（任选一种方法）
+### 方式 B：抓取真实数据
 
-- FBref 抓取（示例，可能需根据联赛调整 `league_slug` 与 `season`）：
+#### FBref（示例）
+需要根据联赛和赛季调整 `league_slug` 和 `season`：
 
 ```bash
 python src/fetch_fbref.py
 ```
 
-- football-data.org（需要 token）：
+#### football-data API（推荐）
+申请 token 后在项目根目录创建 `.env`：
+
+```env
+FOOTBALL_DATA_API_TOKEN=your_token_here
+```
+
+然后运行：
 
 ```bash
 python src/fetch_footballdata_api.py
 ```
 
-抓取后原始 CSV 会保存在 `data/raw/` 下。
+## 实际建模步骤
 
-5. 生成特征
+### 1. 抓取比赛数据
+可以从以下来源获取：
+- FBref：网页/表格抓取
+- football-data.org：官方 API
+- OpenFootball：开放数据集
+- StatsBomb Open Data：事件数据（适合高级分析）
+
+### 2. 清洗和统一字段
+关键字段：
+- `date`
+- `home_team`
+- `away_team`
+- `home_goals`
+- `away_goals`
+
+### 3. 特征工程
+`src/features.py` 已经实现了：
+- 近 5 场主队/客队进球与失球
+- 胜/平/负滚动结果
+- 主客场近期表现差异
+- 简单 Elo 差值
+
+### 4. 模型训练
+`src/model_train.py` 使用 LightGBM 多分类：
+- `0` = 主胜（H）
+- `1` = 平（D）
+- `2` = 客胜（A）
+
+### 5. 预测与回测
+`src/predict.py` 输出模型概率：
+- `p_H`
+- `p_D`
+- `p_A`
+
+`src/backtest.py` 会读取赔率并比较：
+- 模型给出的概率
+- 市场赔率隐含概率
+- 选取最大 edge 的投注选项
+- 输出累计盈亏图与 ROI
+
+## 使用示例赔率文件
+回测需要 `odd_h` / `odd_d` / `odd_a`。你可以使用 `data/raw/example_odds.csv` 作为示例文件：
 
 ```bash
-python -c "from src.features import build_features; build_features('data/raw/your_matches.csv','data/processed/processed_matches.csv')"
+python -c "from src.utils import merge_odds; import pandas as pd; m = pd.read_csv('data/raw/example_matches.csv', parse_dates=['date']); print(merge_odds(m, 'data/raw/example_odds.csv').head())"
 ```
 
-> 注意替换 `'data/raw/your_matches.csv'` 为你实际抓取的文件名。
+## 常见问题
 
-6. 训练模型
+### 1) 队名不一致
+跨数据源时，队名可能不同：
+- `Manchester United` vs `Man United`
+- `West Ham` vs `West Ham United`
 
-```bash
-python src/model_train.py
-```
+处理方法：在合并前建立一张队名映射表。`
 
-训练后模型保存在 `models/lgb_multi_model.pkl`。
+### 2) 没有真实赔率
+很多免费数据源不提供完整的历史赔率。你可以：
+- 使用第三方 API
+- 自己爬取网站数据
+- 做离线回测（按历史比赛结果和模拟赔率）
 
-7. 预测（示例）
+### 3) 数据泄露风险
+训练/验证/测试必须按时间顺序切分，不要用未来信息去训练当前。这个模板已通过 `TimeSeriesSplit` 作为示例。
 
-准备一个包含与训练时相同特征列的待预测 CSV（例如把部分比赛当作“未来”），然后：
+## 进阶方向
 
-```bash
-python src/predict.py --input data/processed/processed_matches_future.csv --model models/lgb_multi_model.pkl
-```
+- 双泊松 / bivariate Poisson：更贴近进球数分布
+- xG（期望进球）模型：基于事件数据做高质量特征
+- XGBoost / CatBoost：可替代 LightGBM
+- 实时赔率与市场效率研究：对模型和赔率差值做更深入分析
 
-输出会写到 `data/processed/predictions.csv`，其中包含 p_H/p_D/p_A（模型概率）。
+## 免责声明
 
-8. 合并赔率（回测必须）
+本项目不提供保证收益，也不构成赌博、下注或博彩建议。请遵守当地法律和平台规则，并在使用真实资金前进行严格回测、风险控制和监测。
 
-回测脚本需要 `odd_h`/`odd_d`/`odd_a` 列（对应主胜/平/客胜下注赔率）。你需要准备历史赔率 CSV（列：date, home_team, away_team, odd_h, odd_d, odd_a），然后用 `src/utils.py` 中的 `merge_odds` 方法合并：
+## 开源协议
 
-```python
-from src.utils import merge_odds
-import pandas as pd
-matches = pd.read_csv('data/processed/processed_matches.csv', parse_dates=['date'])
-merged = merge_odds(matches, 'data/raw/odds_sample.csv')
-merged.to_csv('data/processed/processed_matches_with_odds.csv', index=False)
-```
+MIT License
 
-9. 回测
+---
 
-```bash
-python src/backtest.py
-```
+如果你要，我还可以继续为你补：
+1. 完整的 `Poisson` 版本（更经典的胜平负预测方法）
+2. `StatsBomb` / `kloppy` 的高级事件数据版本
+3. `Jupyter Notebook` 版本，可直接在浏览器中运行和可视化
+4. 一个更真实的 `example_matches.csv` / `example_odds.csv` 示例，覆盖更多赛季和球队
 
-回测会读取 `data/processed/predictions.csv` 并输出累计收益图 `backtest_balance.png` 与控制台统计。
+你只要告诉我你想继续哪一个，我就继续补代码和示例数据。
 
-## 数据与注意事项（重要）
-- 球队名称规范化：不同数据源（FBref、football-data、赔率站）队名可能不一致。建议准备一份名称映射表（mapping）在合并前统一。否则合并失败或匹配错误会导致回测不准确。
-- 赔率数据：历史赔率常常需要付费或自己爬取。请注意目标站点的使用规则与法律合规性。
-- 避免未来泄露（data leakage）：训练/验证/测试一定要按时间分割，代码中使用了 TimeSeriesSplit 做演示。
-- 模型与特征：模板只是入门示例。可以尝试：双泊松 / bivariate Poisson、基于进球回归的概率计算、更丰富的事件特征（若使用 StatsBomb 等事件数据）。
 
-## 若要下载整个项目 ZIP
-在仓库页面点击绿色 "Code" 按钮，然后选择 "Download ZIP"，或直接访问：
 
-```
-https://github.com/nidaye286077907-cpu/football-predictor/archive/refs/heads/main.zip
-```
 
-（刷新页面后 README 会同步显示）
 
-## 下一步我可以为你做的事（选项）
-1. 我可以把示例数据（小量真实历史赛果和示例赔率 CSV）上传到 `data/raw/example_matches.csv` 与 `data/raw/example_odds.csv`，便于你直接跑通全流程；
-2. 我可以把 Poisson / bivariate Poisson 的概率转换代码补入 `src/poisson.py`，并提供如何用回归预测进球数再合成胜平负概率的示例；
-3. 生成项目的 ZIP 下载链接并把示例数据打包（我也可以直接在仓库里添加示例数据文件）。
 
-请回复告诉我你要我接下来做哪一项（例如：1 或 2 或 3），我会立即继续并把变更提交到仓库并把 ZIP 链接给你。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+n
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+n
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
